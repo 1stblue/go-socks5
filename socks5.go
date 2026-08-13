@@ -15,7 +15,7 @@ const (
 	socks5Version = uint8(5)
 )
 
-// Config is used to setup and configure a Server
+// Config is used to set up and configure a Server
 type Config struct {
 	// AuthMethods can be provided to implement custom authentication
 	// By default, "auth-less" mode is enabled.
@@ -112,11 +112,11 @@ func (s *Server) ListenAndServe(network, addr string) error {
 // Serve is used to serve connections from a listener
 func (s *Server) Serve(l net.Listener) error {
 	for {
-		conn, err := l.Accept()
+		client, err := l.Accept()
 		if err != nil {
 			return err
 		}
-		go s.ServeConn(conn)
+		go s.ServeConn(client)
 	}
 }
 
