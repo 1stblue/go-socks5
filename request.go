@@ -1,13 +1,14 @@
 package socks5
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net"
 	"strconv"
 	"strings"
-
-	"golang.org/x/net/context"
+	"time"
 )
 
 const (
@@ -57,7 +58,7 @@ func (a *AddrSpec) String() string {
 
 // Address returns a string suitable to dial; prefer returning IP-based
 // address, fallback to FQDN
-func (a AddrSpec) Address() string {
+func (a *AddrSpec) Address() string {
 	if 0 != len(a.IP) {
 		return net.JoinHostPort(a.IP.String(), strconv.Itoa(a.Port))
 	}
@@ -162,7 +163,7 @@ func (s *Server) handleConnect(ctx context.Context, conn conn, req *Request) err
 		if err := sendReply(conn, ruleFailure, nil); err != nil {
 			return fmt.Errorf("Failed to send reply: %v", err)
 		}
-		return fmt.Errorf("Connect to %v blocked by rules", req.DestAddr)
+		return fmt.Errorf("connect to %v blocked by rules", req.DestAddr)
 	} else {
 		ctx = ctx_
 	}
@@ -183,17 +184,17 @@ func (s *Server) handleConnect(ctx context.Context, conn conn, req *Request) err
 		} else if strings.Contains(msg, "network is unreachable") {
 			resp = networkUnreachable
 		}
-		if err := sendReply(conn, resp, nil); err != nil {
-			return fmt.Errorf("Failed to send reply: %v", err)
+		if err = sendReply(conn, resp, nil); err != nil {
+			return fmt.Errorf("failed to send reply: %v", err)
 		}
-		return fmt.Errorf("Connect to %v failed: %v", req.DestAddr, err)
+		return fmt.Errorf("connect to %v failed: %v", req.DestAddr, err)
 	}
 	defer target.Close()
 
 	// Send success
 	local := target.LocalAddr().(*net.TCPAddr)
 	bind := AddrSpec{IP: local.IP, Port: local.Port}
-	if err := sendReply(conn, successReply, &bind); err != nil {
+	if err = sendReply(conn, successReply, &bind); err != nil {
 		return fmt.Errorf("Failed to send reply: %v", err)
 	}
 
@@ -202,14 +203,18 @@ func (s *Server) handleConnect(ctx context.Context, conn conn, req *Request) err
 	go proxy(target, req.bufConn, errCh)
 	go proxy(conn, target, errCh)
 
-	// Wait
 	for i := 0; i < 2; i++ {
-		e := <-errCh
-		if e != nil {
-			// return from this function closes target (and conn).
-			return e
+		select {
+		case err = <-errCh:
+			if err != nil {
+				return err
+			}
+
+		case <-time.After(10 * time.Second):
+			return errors.New("timeout after 10 seconds")
 		}
 	}
+
 	return nil
 }
 
@@ -220,14 +225,14 @@ func (s *Server) handleBind(ctx context.Context, conn conn, req *Request) error 
 		if err := sendReply(conn, ruleFailure, nil); err != nil {
 			return fmt.Errorf("Failed to send reply: %v", err)
 		}
-		return fmt.Errorf("Bind to %v blocked by rules", req.DestAddr)
+		return fmt.Errorf("bind to %v blocked by rules", req.DestAddr)
 	} else {
 		ctx = ctx_
 	}
 
 	// TODO: Support bind
 	if err := sendReply(conn, commandNotSupported, nil); err != nil {
-		return fmt.Errorf("Failed to send reply: %v", err)
+		return fmt.Errorf("failed to send reply: %v", err)
 	}
 	return nil
 }
@@ -239,14 +244,14 @@ func (s *Server) handleAssociate(ctx context.Context, conn conn, req *Request) e
 		if err := sendReply(conn, ruleFailure, nil); err != nil {
 			return fmt.Errorf("Failed to send reply: %v", err)
 		}
-		return fmt.Errorf("Associate to %v blocked by rules", req.DestAddr)
+		return fmt.Errorf("associate to %v blocked by rules", req.DestAddr)
 	} else {
 		ctx = ctx_
 	}
 
 	// TODO: Support associate
 	if err := sendReply(conn, commandNotSupported, nil); err != nil {
-		return fmt.Errorf("Failed to send reply: %v", err)
+		return fmt.Errorf("failed to send reply: %v", err)
 	}
 	return nil
 }
@@ -269,14 +274,14 @@ func readAddrSpec(r io.Reader) (*AddrSpec, error) {
 		if _, err := io.ReadAtLeast(r, addr, len(addr)); err != nil {
 			return nil, err
 		}
-		d.IP = net.IP(addr)
+		d.IP = addr
 
 	case ipv6Address:
 		addr := make([]byte, 16)
 		if _, err := io.ReadAtLeast(r, addr, len(addr)); err != nil {
 			return nil, err
 		}
-		d.IP = net.IP(addr)
+		d.IP = addr
 
 	case fqdnAddress:
 		if _, err := r.Read(addrType); err != nil {
@@ -322,12 +327,12 @@ func sendReply(w io.Writer, resp uint8, addr *AddrSpec) error {
 
 	case addr.IP.To4() != nil:
 		addrType = ipv4Address
-		addrBody = []byte(addr.IP.To4())
+		addrBody = addr.IP.To4()
 		addrPort = uint16(addr.Port)
 
 	case addr.IP.To16() != nil:
 		addrType = ipv6Address
-		addrBody = []byte(addr.IP.To16())
+		addrBody = addr.IP.To16()
 		addrPort = uint16(addr.Port)
 
 	default:
