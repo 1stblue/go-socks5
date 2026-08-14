@@ -2,6 +2,7 @@ package socks5
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"log"
 	"net"
@@ -149,7 +150,7 @@ func (s *Server) ServeConn(conn net.Conn) error {
 
 	request, err := NewRequest(bufConn)
 	if err != nil {
-		if err == unrecognizedAddrType {
+		if errors.Is(err, unrecognizedAddrType) {
 			if err = sendReply(conn, addrTypeNotSupported, nil); err != nil {
 				return fmt.Errorf("failed to send reply: %v", err)
 			}
