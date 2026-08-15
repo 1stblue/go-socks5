@@ -134,7 +134,6 @@ func TestShouldClientTimeoutWorksFine(t *testing.T) {
 	defer client.CloseIdleConnections()
 
 	_, err = client.Get(fmt.Sprintf("http://%s/?sleep=120", backAddr))
-	fmt.Println(err)
 	time.Sleep(time.Second)
 	if err == nil {
 		//t.FailNow()

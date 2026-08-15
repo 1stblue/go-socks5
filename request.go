@@ -189,10 +189,7 @@ func (s *Server) handleConnect(ctx context.Context, conn conn, req *Request) err
 		}
 		return fmt.Errorf("connect to %v failed: %v", req.DestAddr, err)
 	}
-	defer func() {
-		fmt.Println("close target")
-		_ = target.Close()
-	}()
+	defer target.Close()
 
 	// Send success
 	local := target.LocalAddr().(*net.TCPAddr)
@@ -209,7 +206,6 @@ func (s *Server) handleConnect(ctx context.Context, conn conn, req *Request) err
 	// We do NOT set a timeout, because of long pulling services
 	for i := 0; i < 2; i++ {
 		err = <-errCh
-		fmt.Println("err:", err)
 		if err != nil {
 			return err
 		}
