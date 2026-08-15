@@ -124,9 +124,7 @@ func (s *Server) handleRequest(req *Request, conn conn) error {
 	if dest.FQDN != "" {
 		ctx_, addr, err := s.config.Resolver.Resolve(ctx, dest.FQDN)
 		if err != nil {
-			if err = sendReply(conn, hostUnreachable, nil); err != nil {
-				return fmt.Errorf("failed to send reply: %v", err)
-			}
+			_ = sendReply(conn, hostUnreachable, nil)
 			return fmt.Errorf("failed to resolve destination '%v': %v", dest.FQDN, err)
 		}
 		ctx = ctx_
@@ -148,9 +146,7 @@ func (s *Server) handleRequest(req *Request, conn conn) error {
 	case AssociateCommand:
 		return s.handleAssociate(ctx, conn, req)
 	default:
-		if err := sendReply(conn, commandNotSupported, nil); err != nil {
-			return fmt.Errorf("failed to send reply: %v", err)
-		}
+		_ = sendReply(conn, commandNotSupported, nil)
 		return fmt.Errorf("unsupported command: %v", req.Command)
 	}
 }
@@ -159,9 +155,7 @@ func (s *Server) handleRequest(req *Request, conn conn) error {
 func (s *Server) handleConnect(ctx context.Context, conn conn, req *Request) error {
 	// Check if this is allowed
 	if ctx_, ok := s.config.Rules.Allow(ctx, req); !ok {
-		if err := sendReply(conn, ruleFailure, nil); err != nil {
-			return fmt.Errorf("Failed to send reply: %v", err)
-		}
+		_ = sendReply(conn, ruleFailure, nil)
 		return fmt.Errorf("connect to %v blocked by rules", req.DestAddr)
 	} else {
 		ctx = ctx_
@@ -184,9 +178,8 @@ func (s *Server) handleConnect(ctx context.Context, conn conn, req *Request) err
 		} else if strings.Contains(msg, "network is unreachable") {
 			resp = networkUnreachable
 		}
-		if err = sendReply(conn, resp, nil); err != nil {
-			return fmt.Errorf("failed to send reply: %v", err)
-		}
+
+		_ = sendReply(conn, resp, nil)
 		return fmt.Errorf("connect to %v failed: %v", req.DestAddr, err)
 	}
 	defer target.Close()
