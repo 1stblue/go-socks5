@@ -170,10 +170,11 @@ func (s *Server) handleConnect(ctx context.Context, conn conn, req *Request) err
 	// Attempt to connect
 	dial := s.config.Dial
 	if dial == nil {
-		dial = func(ctx context.Context, net_, addr string) (net.Conn, error) {
-			return net.Dial(net_, addr)
+		dial = func(ctx context.Context, network, addr string) (net.Conn, error) {
+			return net.DialTimeout(network, addr, 30*time.Second)
 		}
 	}
+
 	target, err := dial(ctx, "tcp", req.realDestAddr.Address())
 	if err != nil {
 		msg := err.Error()
@@ -205,24 +206,15 @@ func (s *Server) handleConnect(ctx context.Context, conn conn, req *Request) err
 	go proxy(target, req.bufConn, errCh)
 	go proxy(conn, target, errCh)
 
-	timeout := s.config.Timeout
-	if timeout < 1 {
-		timeout = 30 * time.Second
-	}
-
+	// We do NOT set a timeout, because of long pulling services
 	for i := 0; i < 2; i++ {
-		select {
-		case err = <-errCh:
-			fmt.Println("err:", err)
-			if err != nil {
-				return err
-			}
-
-		case <-time.After(timeout):
-			fmt.Println("timeout")
-			return fmt.Errorf("timeout after %d millisecond(s)", timeout.Milliseconds())
+		err = <-errCh
+		fmt.Println("err:", err)
+		if err != nil {
+			return err
 		}
 	}
+
 	return nil
 }
 

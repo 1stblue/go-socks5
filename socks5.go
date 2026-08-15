@@ -4,12 +4,10 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
+	"golang.org/x/net/context"
 	"log"
 	"net"
 	"os"
-	"time"
-
-	"golang.org/x/net/context"
 )
 
 const (
@@ -47,9 +45,6 @@ type Config struct {
 	// Logger can be used to provide a custom log target.
 	// Defaults to stdout.
 	Logger *log.Logger
-
-	// Proxy Timeout
-	Timeout time.Duration
 
 	// Optional function for dialing out
 	Dial func(ctx context.Context, network, addr string) (net.Conn, error)
