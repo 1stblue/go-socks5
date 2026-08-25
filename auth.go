@@ -3,7 +3,7 @@ package socks5
 import (
 	"fmt"
 	"io"
-	"sort"
+	"slices"
 )
 
 const (
@@ -122,9 +122,7 @@ func (s *Server) authenticate(conn io.Writer, bufConn io.Reader) (*AuthContext, 
 	}
 
 	// 逆序
-	sort.Slice(methods, func(a, b int) bool {
-		return a > b
-	})
+	slices.Reverse(methods)
 	// Select a usable method
 	for _, method := range methods {
 		cator, found := s.authMethods[method]
