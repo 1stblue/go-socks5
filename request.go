@@ -196,15 +196,18 @@ func (s *Server) handleConnect(ctx context.Context, conn conn, req *Request) err
 	go proxy(target, req.bufConn, errCh)
 	go proxy(conn, target, errCh)
 
-	// We do NOT set a timeout, because of long pulling services
-	for i := 0; i < 2; i++ {
-		err = <-errCh
-		if err != nil {
-			return err
-		}
+	err = <-errCh
+	if err != nil {
+		return err
 	}
 
-	return nil
+	select {
+	case err = <-errCh:
+	case <-time.After(10 * time.Second):
+		break
+	}
+
+	return err
 }
 
 // handleBind is used to handle a connect command
