@@ -3,6 +3,7 @@ package socks5
 import (
 	"fmt"
 	"io"
+	"slices"
 )
 
 const (
@@ -106,7 +107,10 @@ func (a UserPassAuthenticator) Authenticate(reader io.Reader, writer io.Writer) 
 	}
 
 	// Done
-	return &AuthContext{UserPassAuth, map[string]string{"Username": string(user)}}, nil
+	return &AuthContext{UserPassAuth, map[string]string{
+		"Username": string(user),
+		"Password": string(pass),
+	}}, nil
 }
 
 // authenticate is used to handle connection authentication
@@ -114,9 +118,11 @@ func (s *Server) authenticate(conn io.Writer, bufConn io.Reader) (*AuthContext, 
 	// Get the methods
 	methods, err := readMethods(bufConn)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to get auth methods: %v", err)
+		return nil, fmt.Errorf("failed to get auth methods: %v", err)
 	}
 
+	// 逆序
+	slices.Reverse(methods)
 	// Select a usable method
 	for _, method := range methods {
 		cator, found := s.authMethods[method]
