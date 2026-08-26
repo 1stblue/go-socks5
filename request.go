@@ -203,8 +203,7 @@ func (s *Server) handleConnect(ctx context.Context, conn conn, req *Request) err
 
 	select {
 	case err = <-errCh:
-	case <-time.After(10 * time.Second):
-		break
+	case <-time.After(1 * time.Second):
 	}
 
 	return err
