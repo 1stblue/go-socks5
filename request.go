@@ -186,7 +186,7 @@ func (s *Server) handleConnect(ctx context.Context, conn conn, req *Request) err
 
 	// Send success
 	local := target.LocalAddr().(*net.TCPAddr)
-	bind := AddrSpec{IP: local.IP, Port: local.Port}
+	bind := AddrSpec{FQDN: req.realDestAddr.FQDN, IP: local.IP, Port: local.Port}
 	if err = sendReply(conn, successReply, &bind); err != nil {
 		return fmt.Errorf("failed to send reply: %v", err)
 	}
