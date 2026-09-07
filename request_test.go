@@ -44,7 +44,7 @@ func TestRequest_Connect(t *testing.T) {
 		if !bytes.Equal(buf, []byte("ping")) {
 			t.Fatalf("bad: %v", buf)
 		}
-		conn.Write([]byte("pong"))
+		_, _ = conn.Write([]byte("ping pong"))
 	}()
 	lAddr := l.Addr().(*net.TCPAddr)
 
@@ -73,8 +73,17 @@ func TestRequest_Connect(t *testing.T) {
 		t.Fatalf("err: %v", err)
 	}
 
-	if err := s.handleRequest(req, resp); err != nil {
+	res, err := s.handleRequest(req, resp)
+	if err != nil {
 		t.Fatalf("err: %v", err)
+	}
+
+	if n, ok := res["up"].(int64); !ok || n != 4 {
+		t.Fatalf("request size should be 4")
+	}
+
+	if n, ok := res["down"].(int64); !ok || n != 9 {
+		t.Fatalf("response size should be 9")
 	}
 
 	// Verify response
@@ -86,7 +95,7 @@ func TestRequest_Connect(t *testing.T) {
 		1,
 		127, 0, 0, 1,
 		0, 0,
-		'p', 'o', 'n', 'g',
+		'p', 'i', 'n', 'g', ' ', 'p', 'o', 'n', 'g',
 	}
 
 	// Ignore the port for both
@@ -148,7 +157,7 @@ func TestRequest_Connect_RuleFail(t *testing.T) {
 		t.Fatalf("err: %v", err)
 	}
 
-	if err := s.handleRequest(req, resp); !strings.Contains(err.Error(), "blocked by rules") {
+	if _, err = s.handleRequest(req, resp); !strings.Contains(err.Error(), "blocked by rules") {
 		t.Fatalf("err: %v", err)
 	}
 
