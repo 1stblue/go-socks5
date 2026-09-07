@@ -77,6 +77,8 @@ type Request struct {
 	RemoteAddr *AddrSpec
 	// AddrSpec of the desired destination
 	DestAddr *AddrSpec
+	// 请求时间
+	Birth time.Time
 	// AddrSpec of the actual destination (might be affected by rewrite)
 	realDestAddr *AddrSpec
 	bufConn      io.Reader
@@ -110,6 +112,7 @@ func NewRequest(bufConn io.Reader) (*Request, error) {
 		Version:  socks5Version,
 		Command:  header[1],
 		DestAddr: dest,
+		Birth:    time.Now(),
 		bufConn:  bufConn,
 	}
 

@@ -169,7 +169,9 @@ func (s *Server) ServeConn(conn net.Conn) error {
 		return err
 	}
 
-	fmt.Println(output)
+	if s.config.Audit != nil {
+		s.config.Audit(request, output)
+	}
 
 	return nil
 }
