@@ -7,6 +7,7 @@ import (
 	"net"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
 )
 
@@ -192,9 +193,25 @@ func (s *Server) handleConnect(ctx context.Context, conn conn, req *Request) err
 	}
 
 	// Start proxying
-	errCh := make(chan error, 2)
-	go proxy(target, req.bufConn, errCh)
-	go proxy(conn, target, errCh)
+	var (
+		start = time.Now()
+		errCh = make(chan error, 2)
+		rSize atomic.Int64
+		wSize atomic.Int64
+	)
+
+	defer func() {
+		if s.config.Logger == nil {
+			return
+		}
+
+		s.config.Logger.Printf("up=%d, down=%d, elasped=%d ms\n",
+			rSize.Load(), wSize.Load(),
+			time.Now().Sub(start).Milliseconds())
+	}()
+
+	go proxy(target, req.bufConn, errCh, &rSize)
+	go proxy(conn, target, errCh, &wSize)
 
 	err = <-errCh
 	if err != nil {
@@ -351,10 +368,13 @@ type closeWriter interface {
 
 // proxy is used to shuffle data from src to destination, and sends errors
 // down a dedicated channel
-func proxy(dst io.Writer, src io.Reader, errCh chan error) {
-	_, err := io.Copy(dst, src)
+func proxy(dst io.Writer, src io.Reader, errCh chan error, size *atomic.Int64) {
+	n, err := io.Copy(dst, src)
 	if tcpConn, ok := dst.(closeWriter); ok {
 		_ = tcpConn.CloseWrite()
 	}
 	errCh <- err
+	if size != nil {
+		size.Store(n)
+	}
 }
