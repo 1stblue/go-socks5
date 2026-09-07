@@ -1,10 +1,10 @@
 package socks5_test
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"github.com/1stblue/go-socks5"
-	"golang.org/x/net/context"
 	"golang.org/x/net/proxy"
 	"net"
 	"net/http"

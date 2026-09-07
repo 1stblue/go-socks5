@@ -2,9 +2,9 @@ package socks5
 
 import (
 	"bufio"
+	"context"
 	"errors"
 	"fmt"
-	"golang.org/x/net/context"
 	"log"
 	"net"
 	"os"
