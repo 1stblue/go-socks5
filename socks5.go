@@ -48,6 +48,11 @@ type Config struct {
 
 	// Optional function for dialing out
 	Dial func(ctx context.Context, network, addr string) (net.Conn, error)
+
+	/**
+	 * 审计Handler
+	 */
+	Audit func(req *Request, info map[string]any)
 }
 
 // Server is responsible for accepting connections and handling
@@ -157,12 +162,14 @@ func (s *Server) ServeConn(conn net.Conn) error {
 		request.RemoteAddr = &AddrSpec{IP: client.IP, Port: client.Port}
 	}
 
-	// Process the client request
-	if err = s.handleRequest(request, conn); err != nil {
+	output, err := s.handleRequest(request, conn)
+	if err != nil {
 		err = fmt.Errorf("failed to handle request: %v", err)
 		s.config.Logger.Printf("[ERR] socks: %v", err)
 		return err
 	}
+
+	fmt.Println(output)
 
 	return nil
 }

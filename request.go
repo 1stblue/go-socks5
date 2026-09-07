@@ -117,7 +117,7 @@ func NewRequest(bufConn io.Reader) (*Request, error) {
 }
 
 // handleRequest is used for request processing after authentication
-func (s *Server) handleRequest(req *Request, conn conn) error {
+func (s *Server) handleRequest(req *Request, conn conn) (map[string]any, error) {
 	ctx := context.Background()
 
 	// Resolve the address if we have a FQDN
@@ -126,7 +126,7 @@ func (s *Server) handleRequest(req *Request, conn conn) error {
 		ctx_, addr, err := s.config.Resolver.Resolve(ctx, dest.FQDN)
 		if err != nil {
 			_ = sendReply(conn, hostUnreachable, nil)
-			return fmt.Errorf("failed to resolve destination '%v': %v", dest.FQDN, err)
+			return nil, fmt.Errorf("failed to resolve destination '%v': %v", dest.FQDN, err)
 		}
 		ctx = ctx_
 		dest.IP = addr
@@ -143,21 +143,21 @@ func (s *Server) handleRequest(req *Request, conn conn) error {
 	case ConnectCommand:
 		return s.handleConnect(ctx, conn, req)
 	case BindCommand:
-		return s.handleBind(ctx, conn, req)
+		return nil, s.handleBind(ctx, conn, req)
 	case AssociateCommand:
-		return s.handleAssociate(ctx, conn, req)
+		return nil, s.handleAssociate(ctx, conn, req)
 	default:
 		_ = sendReply(conn, commandNotSupported, nil)
-		return fmt.Errorf("unsupported command: %v", req.Command)
+		return nil, fmt.Errorf("unsupported command: %v", req.Command)
 	}
 }
 
 // handleConnect is used to handle a connect command
-func (s *Server) handleConnect(ctx context.Context, conn conn, req *Request) error {
+func (s *Server) handleConnect(ctx context.Context, conn conn, req *Request) (map[string]any, error) {
 	// Check if this is allowed
 	if ctx_, ok := s.config.Rules.Allow(ctx, req); !ok {
 		_ = sendReply(conn, ruleFailure, nil)
-		return fmt.Errorf("connect to %v blocked by rules", req.DestAddr)
+		return nil, fmt.Errorf("connect to %v blocked by rules", req.DestAddr)
 	} else {
 		ctx = ctx_
 	}
@@ -181,7 +181,7 @@ func (s *Server) handleConnect(ctx context.Context, conn conn, req *Request) err
 		}
 
 		_ = sendReply(conn, resp, nil)
-		return fmt.Errorf("connect to %v failed: %v", req.DestAddr, err)
+		return nil, fmt.Errorf("connect to %v failed: %v", req.DestAddr, err)
 	}
 	defer target.Close()
 
@@ -189,33 +189,22 @@ func (s *Server) handleConnect(ctx context.Context, conn conn, req *Request) err
 	local := target.LocalAddr().(*net.TCPAddr)
 	bind := AddrSpec{FQDN: req.realDestAddr.FQDN, IP: local.IP, Port: local.Port}
 	if err = sendReply(conn, successReply, &bind); err != nil {
-		return fmt.Errorf("failed to send reply: %v", err)
+		return nil, fmt.Errorf("failed to send reply: %v", err)
 	}
 
 	// Start proxying
 	var (
-		start = time.Now()
 		errCh = make(chan error, 2)
 		rSize atomic.Int64
 		wSize atomic.Int64
 	)
-
-	defer func() {
-		if s.config.Logger == nil {
-			return
-		}
-
-		s.config.Logger.Printf("up=%d, down=%d, elasped=%d ms\n",
-			rSize.Load(), wSize.Load(),
-			time.Now().Sub(start).Milliseconds())
-	}()
 
 	go proxy(target, req.bufConn, errCh, &rSize)
 	go proxy(conn, target, errCh, &wSize)
 
 	err = <-errCh
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	select {
@@ -223,7 +212,10 @@ func (s *Server) handleConnect(ctx context.Context, conn conn, req *Request) err
 	case <-time.After(1 * time.Second):
 	}
 
-	return err
+	return map[string]any{
+		"up":   rSize.Load(),
+		"down": wSize.Load(),
+	}, err
 }
 
 // handleBind is used to handle a connect command
