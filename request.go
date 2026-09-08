@@ -212,11 +212,11 @@ func (s *Server) handleConnect(ctx context.Context, conn conn, req *Request) (ma
 
 	for {
 		select {
-		case err = <-errCh:
+		case <-errCh:
 			return map[string]any{
 				"up":   rSize.Load(),
 				"down": wSize.Load(),
-			}, err
+			}, nil
 		case <-time.After(1 * time.Second):
 			_ = target.Close()
 		}
