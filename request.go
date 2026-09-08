@@ -213,8 +213,10 @@ func (s *Server) handleConnect(ctx context.Context, conn conn, req *Request) (ma
 	select {
 	case err = <-errCh:
 	case <-time.After(1 * time.Second):
+		_ = target.Close()
 	}
 
+	// timeout触发时，target.Close 尚未执行，io.Copy 尚未结束，因此拿不到正确的 size
 	return map[string]any{
 		"up":   rSize.Load(),
 		"down": wSize.Load(),
