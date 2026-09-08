@@ -365,11 +365,11 @@ type closeWriter interface {
 // down a dedicated channel
 func proxy(dst io.Writer, src io.Reader, errCh chan error, size *atomic.Int64) {
 	n, err := io.Copy(dst, src)
+	if size != nil {
+		size.Store(n)
+	}
 	if tcpConn, ok := dst.(closeWriter); ok {
 		_ = tcpConn.CloseWrite()
 	}
 	errCh <- err
-	if size != nil {
-		size.Store(n)
-	}
 }
