@@ -163,15 +163,14 @@ func (s *Server) ServeConn(conn net.Conn) error {
 	}
 
 	output, err := s.handleRequest(request, conn)
-	if err != nil {
-		err = fmt.Errorf("failed to handle request: %v", err)
-		s.config.Logger.Printf("[ERR] socks: %v", err)
-		return err
-	}
-
 	if s.config.Audit != nil {
 		s.config.Audit(request, output)
 	}
 
-	return nil
+	if err != nil {
+		err = fmt.Errorf("failed to handle request: %v", err)
+		s.config.Logger.Printf("[ERR] socks: %v", err)
+	}
+
+	return err
 }

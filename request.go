@@ -206,17 +206,13 @@ func (s *Server) handleConnect(ctx context.Context, conn conn, req *Request) (ma
 	go proxy(conn, target, errCh, &wSize)
 
 	err = <-errCh
-	if err != nil {
-		return nil, err
-	}
-
 	for {
 		select {
 		case <-errCh:
 			return map[string]any{
 				"up":   rSize.Load(),
 				"down": wSize.Load(),
-			}, nil
+			}, err
 		case <-time.After(1 * time.Second):
 			_ = target.Close()
 		}
